@@ -17,32 +17,10 @@ import javax.sql.rowset.Predicate;
 
 public class SeriesParticleFilterEngine 
 {
-	private ArrayList<Double> referenceData;
-	private int numFunction;
-	private double threshold;
-	private int startDate;
-	private int endDate;
-
+	
+	
 	public SeriesParticleFilterEngine()
 	{}
-	
-	public SeriesParticleFilterEngine(ArrayList<Double> inputReferenceData, 
-										int inputStartDate, 
-										int inputEndDate, 
-										int inputNumParticle, 
-										double inputThresHold)
-	{
-		referenceData = inputReferenceData;
-		startDate = inputStartDate;
-		endDate = inputEndDate;
-		numFunction = inputNumParticle;
-		threshold = inputThresHold;
-	}
-	
-	public SeriesParticleFilterEngine(ArrayList<Double> inputReferenceData)
-	{
-		referenceData = inputReferenceData;
-	}
 	
 	public ArrayList<Double> functionGeneration(double anchorValue, double referenceValue, int numParticle, int numLoop, double threshold, double riseAndFallIndicator)
 	{
@@ -101,7 +79,7 @@ public class SeriesParticleFilterEngine
 		return distributionList.get(errorList.indexOf(Collections.min(errorList)));
 	}
 
-	public double predictedValue(int startDate, int endDate, double threshold, ArrayList<Double> Data)
+	public double predictValue(int startDate, int endDate, int numParticle, int numLoop, double threshold, ArrayList<Double> Data)
 	{
 		double result = 0;
 		
@@ -112,7 +90,7 @@ public class SeriesParticleFilterEngine
 		//We can see in the anchorValue of the functionGeneration module we use Data.get(i - 1), that is the actual startDate
 		for(int i = startDate; i < endDate; i++)
 		{
-			ArrayList<Double> distributionElement = functionGeneration(Data.get(i - 1), Data.get(i), 10, 1000, threshold, 0.5);
+			ArrayList<Double> distributionElement = functionGeneration(Data.get(i - 1), Data.get(i), numParticle, numLoop, threshold, 0.5);
 			
 			distribution.addAll(distributionElement);
 		}
@@ -360,46 +338,33 @@ public class SeriesParticleFilterEngine
 		
 		return result;
 	}
+
+	public int[] parameterTraining(ArrayList<Double> trainingData)
+	{
+		int[] result = new int[2];
+		int[] particle = {3, 10, 20, 30, 60, 100};
+		int[] loop = {30, 60, 100, 300, 600, 1000, 3000, 6000, 10000};
+		int[] day = {3, 10, 15, 30, 60, 100};
+		
+		for(int numParicle = 0; numParicle < particle.length; numParicle++)
+		{
+			for(int numLoop = 0; numLoop < loop.length; numLoop++)
+			{
+				for(int numDay = 0; numDay < day.length; numDay++)
+				{
+					double error = 0;
+					for(int i = day[numDay]; i < trainingData.size() - 1; i++)
+					{
+						double predictedValue = predictValue(i - (day[numDay] - 1), i, numParicle, numLoop, 1, trainingData);
+						error = Math.abs(predictedValue - trainingData.get(i + 1));
+					}
+				}
+			}
+		}
+		
+		return result;
+	}
 	
-	public void setReferenceData(ArrayList<Double> referenceData) {
-		this.referenceData = referenceData;
-	}
-	
-	public ArrayList<Double> getReferenceData() {
-		return referenceData;
-	}
-
-	public void setNumParticle(int numParticle) {
-		this.numFunction = numParticle;
-	}
-
-	public int getNumParticle() {
-		return numFunction;
-	}
-
-	public void setThreshold(double threshold) {
-		this.threshold = threshold;
-	}
-
-	public double getThreshold() {
-		return threshold;
-	}
-
-	public void setStartDate(int startDate) {
-		this.startDate = startDate;
-	}
-
-	public int getStartDate() {
-		return startDate;
-	}
-
-	public void setEndDate(int endDate) {
-		this.endDate = endDate;
-	}
-
-	public int getEndDate() {
-		return endDate;
-	}
 	
 	public static void main(String[] args)
 	{
@@ -407,10 +372,12 @@ public class SeriesParticleFilterEngine
 		
 		SeriesParticleFilterEngine Engine = new SeriesParticleFilterEngine();
 		
+		/*
 		for(int i = 10; i < data.size(); i++)
 		{
-			System.out.println(Engine.predictedValue(i - 9, i, 1, data));
+			System.out.println(Engine.predictValue(i - 9, i, 1, data));
 		}
+		*/
 		
 		/*
 		try 
