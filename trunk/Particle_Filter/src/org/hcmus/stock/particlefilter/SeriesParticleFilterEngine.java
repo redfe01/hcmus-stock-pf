@@ -346,22 +346,28 @@ public class SeriesParticleFilterEngine
 		
 		for(int iSetup = 0; iSetup < setupList.size(); iSetup++)
 		{
+			System.out.println("Training Setting: " + (iSetup + 1) + " " + 
+					setupList.get(iSetup)[0] + " " +
+					setupList.get(iSetup)[1] + " " +
+					setupList.get(iSetup)[2]);
+			
 			double valueError = 0;
 			double trendError = 0;
 			
-			for(int i = setupList.get(iSetup)[2]; i < trainingData.size() - 1; i++)
-			{
+			for(int i = setupList.get(iSetup)[2]; i < trainingData.size(); i++)
+			{	
 				double predictedValue = predictValue(i - (setupList.get(iSetup)[2] - 1), i, setupList.get(iSetup)[0], setupList.get(iSetup)[1], 1, trainingData);
-				valueError += Math.abs(predictedValue - trainingData.get(i + 1));
 				
-				if((predictedValue - trainingData.get(i)) * (trainingData.get(i + 1) - trainingData.get(i)) > 0)
+				valueError += Math.abs(predictedValue - trainingData.get(i));
+				
+				if((predictedValue - trainingData.get(i - 1)) * (trainingData.get(i) - trainingData.get(i - 1)) > 0)
 				{
 					trendError++;
-				}	
+				}
 			}
 			
-			valueError = valueError/(trainingData.size() - 1);
-			trendError = trendError/(trainingData.size() - 1);
+			valueError = valueError/(trainingData.size() - setupList.get(iSetup)[2]);
+			trendError = trendError/(trainingData.size() - setupList.get(iSetup)[2]);
 			
 			vError.add(valueError);
 			tError.add(trendError);
@@ -381,9 +387,9 @@ public class SeriesParticleFilterEngine
 		
 		ArrayList<int[]> setupList = new ArrayList<int[]>();
 		
-		int[] particle = {3, 10, 20, 30, 60, 100};
+		int[] particle = {3, 5, 10, 20, 30, 60, 100};
 		int[] loop = {30, 60, 100, 300, 600, 1000, 3000, 6000, 10000};
-		int[] day = {3, 10, 15, 30, 60, 100};
+		int[] day = {4, 6, 8, 11, 16};
 		
 		for(int iParicle = 0; iParicle < particle.length; iParicle++)
 		{
@@ -401,16 +407,18 @@ public class SeriesParticleFilterEngine
 			}
 		}
 		
+		System.out.println("Setup ok");
+		
 		try
 		{
 			BufferedWriter vWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("vResult.txt"), "UTF-8"));
 			BufferedWriter tWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("tResult.txt"), "UTF-8"));
 			BufferedWriter logWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("Statistic.txt"), "UTF-8"));
 			
-			for(int i = 200; i < data.size() - 1; i++)
-			{
+			for(int i = 30; i < data.size(); i++)
+			{	
 				ArrayList<Double> subdata = new ArrayList<Double>();
-				subdata.addAll(data.subList(i - 200, i - 1));
+				subdata.addAll(data.subList(i - 30, i));
 				
 				ArrayList<ArrayList<Double>> result = Engine.parameterTraining(subdata, setupList);
 				
@@ -419,17 +427,23 @@ public class SeriesParticleFilterEngine
 
 				logWriter.write("To be predicted day: " + (i + 1) + "\n");
 				logWriter.write(result.get(0) + "\n");
+				logWriter.write("min vSetting: " + vSetup[0] + " - " + vSetup[1] + " - " + vSetup[2] + "\n");
 				logWriter.write(result.get(1) + "\n");
-				logWriter.write(result.get(0).indexOf(Collections.min(result.get(0))) + "\n");
-				logWriter.write(result.get(1).indexOf(Collections.min(result.get(1))) + "\n");
+				logWriter.write("min tSetting: " + tSetup[0] + " - " + tSetup[1] + " - " + tSetup[2] + "\n");
 				logWriter.write("\n");
 				
-				double vPredictValue = Engine.predictValue(i - vSetup[2] + 1, i + 1, vSetup[0], vSetup[1], 1, data);
-				double tPredictValue = Engine.predictValue(i - tSetup[2] + 1, i + 1, tSetup[0], tSetup[1], 1, data);
+				double vPredictValue = Engine.predictValue(i - vSetup[2] + 1, i, vSetup[0], vSetup[1], 1, data);
+				double tPredictValue = Engine.predictValue(i - tSetup[2] + 1, i, tSetup[0], tSetup[1], 1, data);
 				
 				vWriter.write(vPredictValue + "\n");
 				tWriter.write(tPredictValue + "\n");
+				
+				System.out.println("Loop end");
 			}
+			
+			logWriter.close();
+			vWriter.close();
+			tWriter.close();
 		}
 		catch (UnsupportedEncodingException e) 
 		{
