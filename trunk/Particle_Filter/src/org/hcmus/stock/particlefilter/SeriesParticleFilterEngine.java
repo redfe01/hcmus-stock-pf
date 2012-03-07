@@ -13,8 +13,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Random;
 
-import javax.sql.rowset.Predicate;
-
 public class SeriesParticleFilterEngine 
 {
 	public SeriesParticleFilterEngine()
@@ -26,23 +24,27 @@ public class SeriesParticleFilterEngine
 		
 		ArrayList<Double> errorList = new ArrayList<Double>();
 		
+		Random primary = new Random();
+		
 		for(int loop = 0; loop < numLoop; loop++)
 		{
 			double functionError = 0;
 			ArrayList<Double> distribution = new ArrayList<Double>();
 			ArrayList<Double> priceList = new ArrayList<Double>();
 			
+			Random valueDist = new Random(primary.nextInt());
+			
 			for(int i = 0; i < numParticle; i++)
 			{
-				Random generator = new Random();
+				Random riseFallDist = new Random(primary.nextInt());
 				
 				double differences = 0;
 				
-				double probability = generator.nextDouble();
+				double probability = riseFallDist.nextDouble();
 				
 				if(probability > riseAndFallIndicator)
 				{
-					probability = generator.nextDouble();
+					probability = valueDist.nextDouble();
 					
 					distribution.add(probability);
 					
@@ -50,7 +52,7 @@ public class SeriesParticleFilterEngine
 				}
 				else
 				{
-					probability = - generator.nextDouble();
+					probability = - valueDist.nextDouble();
 					
 					distribution.add(probability);
 					
@@ -77,7 +79,7 @@ public class SeriesParticleFilterEngine
 		return distributionList.get(errorList.indexOf(Collections.min(errorList)));
 	}
 
-	public double predictValue(int startDate, int endDate, int numParticle, int numLoop, double threshold, ArrayList<Double> Data)
+	public double predictValue(int startDate, int endDate, int numParticle, int numLoop, double threshold, ArrayList<Double> data)
 	{
 		double result = 0;
 		
@@ -88,23 +90,37 @@ public class SeriesParticleFilterEngine
 		//We can see in the anchorValue of the functionGeneration module we use Data.get(i - 1), that is the actual startDate
 		for(int i = startDate; i < endDate; i++)
 		{
-			ArrayList<Double> distributionElement = functionGeneration(Data.get(i - 1), Data.get(i), numParticle, numLoop, threshold, 0.5);
+			ArrayList<Double> distributionElement = functionGeneration(data.get(i - 1), data.get(i), numParticle, numLoop, threshold, 0.5);
 			
 			distribution.addAll(distributionElement);
+			
+			//Bug tracking
+			//System.out.println(data.get(i - 1) + " " + data.get(i));
 		}
 		
-		ArrayList<Double> weightList = normalizer(weighting(distribution, 0.15));
+		ArrayList<Double> weightList = normalizer(weighting(distribution, 0.1));
 		
 		double distance = 0;
 		
 		for(int i = 0; i < distribution.size(); i++)
 		{
-			distance += Data.get(endDate - 1) * 0.05 * distribution.get(i) * weightList.get(i);
+			distance += data.get(endDate - 1) * 0.05 * distribution.get(i) * weightList.get(i);
 		}
 		
-		result = Data.get(endDate - 1) + distance;
+//		Random randomWalk = new Random();
+//		
+//		if(randomWalkIndicator(startDate, endDate, data))
+//		{
+//			if(randomWalk.nextDouble() > 0.5)
+//			{
+//				distance = -distance;
+//			}
+//		}
 		
-		//System.out.println(Data.get(endDate - 1) + "\t" + distance + "\t" + result);
+		result = data.get(endDate - 1) + distance;
+		
+		//Bug tracking
+		//System.out.println(data.get(endDate - 1) + "\t" + distance + "\t" + result);
 		
 		return result;
 	}
@@ -360,6 +376,9 @@ public class SeriesParticleFilterEngine
 				
 				valueError += Math.abs(predictedValue - trainingData.get(i));
 				
+				//System.out.println(predictedValue);
+				//System.out.println(trainingData.get(i));
+				
 				if((predictedValue - trainingData.get(i - 1)) * (trainingData.get(i) - trainingData.get(i - 1)) < 0)
 				{
 					trendError++;
@@ -379,6 +398,60 @@ public class SeriesParticleFilterEngine
 		return result;
 	}
 	
+	public double randomWalkProbabilityBias(int startDate, int endDate, ArrayList<Double> data)
+	{
+		double[] probabilityList = {0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45};
+		
+		int count = 0;
+		
+		for(int i = startDate; i < endDate; i++)
+		{
+			if(data.get(i) - data.get(i - 1) > 0)
+			{
+				count++;
+			}
+			
+			if(data.get(i) - data.get(i - 1) < 0)
+			{
+				count--;
+			}
+		}
+	
+		if(count > 7 || count < -7)
+		{
+			count = 7;
+		}
+		
+		return probabilityList[Math.abs(count)];
+	}
+	
+	public boolean randomWalkIndicator(int startDate, int endDate, ArrayList<Double> data)
+	{
+		int count = 0;
+		
+		for(int i = startDate; i < endDate; i++)
+		{
+			if(data.get(i) - data.get(i - 1) > 0)
+			{
+				count++;
+			}
+			
+			if(data.get(i) - data.get(i - 1) < 0)
+			{
+				count--;
+			}
+		}
+	
+		if(count > 3 || count < -3)
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+	
 	public static void main(String[] args)
 	{
 		ArrayList<Double> data = readFileToDouble("Data - VNINDEX.txt");
@@ -390,6 +463,17 @@ public class SeriesParticleFilterEngine
 		int[] particle = {3, 5, 10, 20, 30};
 		int[] loop = {30, 60, 100, 300, 600, 1000};
 		int[] day = {4, 6, 8};
+		
+		int[] quarter = {15, 27, 66, 101, 139, 177, 217, 259, 321, 385, 450, 505, 567, 631, 697, 754, 817, 881, 947, 1005, 1067, 1131, 1194, 1252, 1314, 1378, 
+							1443, 1501, 1562, 1626, 1691, 1749, 1806, 1870, 1936, 1994, 2056, 2121, 2187, 2245, 2307, 2369, 2434, 2491, 2552, 2604};
+		
+		double vQuarterResult = 0;
+		double tQuarterResult = 0;
+		double vRQuarterResult = 0;
+		double tRQuarterResult = 0;
+		int qIndex = 1;
+		
+		Random setupIndex = new Random();
 		
 		for(int iParicle = 0; iParicle < particle.length; iParicle++)
 		{
@@ -407,24 +491,80 @@ public class SeriesParticleFilterEngine
 			}
 		}
 		
+		int[] vSetupDist = new int[setupList.size()];
+		int[] tSetupDist = new int[setupList.size()];
+		
+		for(int i = 0; i < vSetupDist.length; i++)
+		{
+			vSetupDist[i] = 0;
+		}
+		
+		for(int i = 0; i < tSetupDist.length; i++)
+		{
+			tSetupDist[i] = 0;
+		}
+		
 		try
 		{
-			BufferedWriter vWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("vResult.txt"), "UTF-8"));
-			BufferedWriter tWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("tResult.txt"), "UTF-8"));
-			BufferedWriter logWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("Statistic.txt"), "UTF-8"));
+			BufferedWriter resultWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("result.txt"), "UTF-8"));
+			BufferedWriter randSetResultWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("randSetResult.txt"), "UTF-8"));
+			BufferedWriter logWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("statistic.txt"), "UTF-8"));
+			BufferedWriter setupDistWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("setupDist.txt"), "UTF-8"));
+			BufferedWriter quarterResultWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("quarterResult.txt"), "UTF-8"));
+			BufferedWriter randomQuarterWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("randomQuarterResult.txt"), "UTF-8"));
+			BufferedWriter rLogWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("rStatistic.txt"), "UTF-8"));
+			
+			ArrayList<Double> subdata = new ArrayList<Double>();
+			subdata.addAll(data.subList(0, 14));
+			ArrayList<ArrayList<Double>> result = Engine.parameterTraining(subdata, setupList);
+			
+			int vSetupNum = result.get(0).indexOf(Collections.min(result.get(0)));
+			int tSetupNum = result.get(1).indexOf(Collections.min(result.get(1)));
+			
+			int[] vSetup = setupList.get(vSetupNum);
+			int[] tSetup = setupList.get(tSetupNum);
+			
+			vSetupDist[vSetupNum]++;
+			tSetupDist[tSetupNum]++;
+			
+			int vRandSetting = setupIndex.nextInt(90);
+			int tRandSetting = setupIndex.nextInt(90);
+			
+			int[] vRSetup = setupList.get(vRandSetting);
+			int[] tRSetup = setupList.get(tRandSetting);
+			
+			double vPredictValue = Engine.predictValue(14 - vSetup[2] + 1, 14, vSetup[0], vSetup[1], 1, data);
+			double tPredictValue = Engine.predictValue(14 - tSetup[2] + 1, 14, tSetup[0], tSetup[1], 1, data);
+			double vRPredictValue = Engine.predictValue(14 - vRSetup[2] + 1, 14, vRSetup[0], vRSetup[1], 1, data);
+			double tRPredictValue = Engine.predictValue(14 - tRSetup[2] + 1, 14, tRSetup[0], tRSetup[1], 1, data);
+			
+			double tPredictValuePrev = tPredictValue;
+			double tRPredictValuePrev = tRPredictValue;
 			
 			for(int i = 15; i < data.size(); i++)
 			{	
-				ArrayList<Double> subdata = new ArrayList<Double>();
+				subdata = new ArrayList<Double>();
 				subdata.addAll(data.subList(i - 15, i));
 				
 				System.out.println("Predict day: " + (i + 1));
 				
-				ArrayList<ArrayList<Double>> result = Engine.parameterTraining(subdata, setupList);
+				result = Engine.parameterTraining(subdata, setupList);
 				
-				int[] vSetup = setupList.get(result.get(0).indexOf(Collections.min(result.get(0))));
-				int[] tSetup = setupList.get(result.get(1).indexOf(Collections.min(result.get(1))));
-
+				vSetupNum = result.get(0).indexOf(Collections.min(result.get(0)));
+				tSetupNum = result.get(1).indexOf(Collections.min(result.get(1)));
+				
+				vSetup = setupList.get(vSetupNum);
+				tSetup = setupList.get(tSetupNum);
+				
+				vSetupDist[vSetupNum]++;
+				tSetupDist[tSetupNum]++;
+				
+				vRandSetting = setupIndex.nextInt(90);
+				tRandSetting = setupIndex.nextInt(90);
+				
+				vRSetup = setupList.get(vRandSetting);
+				tRSetup = setupList.get(tRandSetting);
+				
 				logWriter.write("To be predicted day: " + (i + 1) + "\n");
 				logWriter.write(result.get(0) + "\n");
 				logWriter.write("min vValue: " + Collections.min(result.get(0)) + "\n");
@@ -434,16 +574,67 @@ public class SeriesParticleFilterEngine
 				logWriter.write("min tSetting: " + tSetup[0] + " - " + tSetup[1] + " - " + tSetup[2] + "\n");
 				logWriter.write("\n");
 				
-				double vPredictValue = Engine.predictValue(i - vSetup[2] + 1, i, vSetup[0], vSetup[1], 1, data);
-				double tPredictValue = Engine.predictValue(i - tSetup[2] + 1, i, tSetup[0], tSetup[1], 1, data);
+				rLogWriter.write((i + 1) + "\t" + vRSetup[0] + " - " + vRSetup[1] + " - " + vRSetup[2]
+				                         + "\t" + tRSetup[0] + " - " + tRSetup[1] + " - " + tRSetup[2] + "\n");
 				
-				vWriter.write(vPredictValue + "\n");
-				tWriter.write(tPredictValue + "\n");
+				vPredictValue = Engine.predictValue(i - vSetup[2] + 1, i, vSetup[0], vSetup[1], 1, data);
+				tPredictValue = Engine.predictValue(i - tSetup[2] + 1, i, tSetup[0], tSetup[1], 1, data);
+				vRPredictValue = Engine.predictValue(i - vRSetup[2] + 1, i, vRSetup[0], vRSetup[1], 1, data);
+				tRPredictValue = Engine.predictValue(i - tRSetup[2] + 1, i, tRSetup[0], tRSetup[1], 1, data);
+				
+				resultWriter.write(vPredictValue + "\t" + tPredictValue + "\n");
+				randSetResultWriter.write(vRPredictValue + "\t" + tRPredictValue + "\n");
+				
+				vQuarterResult += Math.abs(vPredictValue - data.get(i));
+				vRQuarterResult += Math.abs(vRPredictValue - data.get(i));
+				
+				if((tPredictValue - tPredictValuePrev) * (data.get(i) - data.get(i - 1)) > 0)
+				{
+					tQuarterResult++;
+				}
+				
+				if((tRPredictValue - tRPredictValuePrev) * (data.get(i) - data.get(i - 1)) > 0)
+				{
+					tRQuarterResult++;
+				}
+				
+				tPredictValuePrev = tPredictValue;
+				tRPredictValuePrev = tRPredictValue;
+				
+				if((i + 1) == quarter[qIndex])
+				{
+					quarterResultWriter.write((vQuarterResult/(quarter[qIndex] - quarter[qIndex - 1]))
+												+ "\t" + tQuarterResult + "/" + (quarter[qIndex] - quarter[qIndex - 1])
+												+ "\t" + (tQuarterResult/(quarter[qIndex] - quarter[qIndex - 1])) + "\n");
+					
+					randomQuarterWriter.write((vRQuarterResult/(quarter[qIndex] - quarter[qIndex - 1])) 
+												+ "\t" + (tRQuarterResult/(quarter[qIndex] - quarter[qIndex - 1])) + "\n");
+					
+					qIndex++;
+					
+					vQuarterResult = 0;
+					tQuarterResult = 0;
+					
+					vRQuarterResult = 0;
+					tRQuarterResult = 0;
+				}
+				
 			}
 			
+			for(int i = 0; i < vSetupDist.length; i++)
+			{
+				setupDistWriter.write(setupList.get(i)[0] + " - " + setupList.get(i)[1] + " - " + setupList.get(i)[2] + ":" + "\t" 
+										+ vSetupDist[i] + "\t" +
+										+ tSetupDist[i] + "\n");
+			}
+			
+			setupDistWriter.close();
 			logWriter.close();
-			vWriter.close();
-			tWriter.close();
+			resultWriter.close();
+			randSetResultWriter.close();
+			quarterResultWriter.close();
+			randomQuarterWriter.close();
+			rLogWriter.close();
 		}
 		catch (UnsupportedEncodingException e) 
 		{
