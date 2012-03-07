@@ -9,12 +9,12 @@ import java.util.ArrayList;
 import umontreal.iro.lecuyer.probdist.NormalDist;
 import umontreal.iro.lecuyer.probdist.RayleighDist;
 
-public class ParticleFilter 
+public class PseudoParticleFilter 
 {
 	private ArrayList<Double> particleList;
 	private ArrayList<Double> weight;
 	
-	public ParticleFilter()
+	public PseudoParticleFilter()
 	{
 		particleList = new ArrayList<Double>();
 		weight = new ArrayList<Double>();
@@ -134,7 +134,7 @@ public class ParticleFilter
 	
 	public static void main(String[] args)
 	{
-		ParticleFilter pfEngine = new ParticleFilter();
+		PseudoParticleFilter pfEngine = new PseudoParticleFilter();
 		Data testData = new Data("AGF.txt", 5);
 		
 		//NumberFormat formatter = new DecimalFormat("#.#######");
