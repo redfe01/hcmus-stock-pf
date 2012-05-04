@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Random;
@@ -125,6 +126,59 @@ public class SeriesParticleFilterEngine
 		return result;
 	}
 	
+	public void predictValueDemo(int startDate, int endDate, int numParticle, int numLoop, double threshold, double radius,  ArrayList<Double> data)
+	{
+		try
+		{
+			BufferedWriter demoWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("dayStimulate.txt")));
+		
+			double result = 0;
+			
+			ArrayList<Double> distribution = new ArrayList<Double>();
+			
+			int count = 1;
+			
+			for(int i = startDate; i < endDate; i++)
+			{
+				ArrayList<Double> distributionElement = functionGeneration(data.get(i - 1), data.get(i), numParticle, numLoop, threshold, 0.5);
+				
+				for(int j = 0; j < distributionElement.size(); j++)
+				{
+					double value = (data.get(i - 1) * 0.05 * distributionElement.get(j)) + data.get(i - 1);
+					demoWriter.write(count + "\t" + value + "\t" + count + "\t" + distributionElement.get(j) + "\n");
+				}
+				
+				count++;
+	
+				distribution.addAll(distributionElement);
+			}
+			
+			ArrayList<Double> weightList = normalizer(weighting(distribution, radius));
+			
+			double distance = 0;
+			
+			for(int i = 0; i < distribution.size(); i++)
+			{
+				distance += data.get(endDate - 1) * 0.05 * distribution.get(i) * weightList.get(i);
+			}
+			
+			result = data.get(endDate - 1) + distance;
+		
+			demoWriter.write(count + "\t" + data.get(endDate) + "\t" + count + "\t" + data.get(endDate) + "\n");
+			demoWriter.write(count + "\t" + result + "\t" + count + "\t" + result);
+			
+			demoWriter.close();
+		}
+		catch (FileNotFoundException e) 
+		{
+			e.printStackTrace();
+		} 
+		catch (IOException e) 
+		{
+			e.printStackTrace();
+		}
+	}
+
 	public ArrayList<Double> normalizer(ArrayList<Double> inputData)
 	{
 		ArrayList<Double> result = new ArrayList<Double>();
@@ -452,7 +506,7 @@ public class SeriesParticleFilterEngine
 		}
 	}
 	
-	public static void main(String[] args)
+	public static void parameterStatistics()
 	{
 		SeriesParticleFilterEngine engine = new SeriesParticleFilterEngine();
 		
@@ -474,11 +528,9 @@ public class SeriesParticleFilterEngine
 			double radius;
 		}
 		
-		
 		ArrayList<Setting> setting = new ArrayList<Setting>();
 		ArrayList<Double> tResultList = new ArrayList<Double>();
 		ArrayList<Double> vResultList = new ArrayList<Double>();
-		
 		
 		for(int i = 0; i < particle.length; i++)
 		{
@@ -507,7 +559,6 @@ public class SeriesParticleFilterEngine
 		
 		ArrayList<Double> data = readFileToDouble("Data - VNINDEX.txt");
 		
-		
 		try
 		{
 			BufferedWriter settingResults = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("settingResults.txt")));
@@ -518,7 +569,7 @@ public class SeriesParticleFilterEngine
 				
 				System.out.println(setting.get(s).particle + " - " + setting.get(s).day + " - " + setting.get(s).loop + " - " + setting.get(s).threshold + " - " + setting.get(s).radius);
 				
-				double predictValue = engine.predictValue(19 - setting.get(s).day + 1, 19, setting.get(s).particle, setting.get(s).loop, setting.get(s).threshold, setting.get(s).radius, data);
+				double predictValue = engine.predictValue(14 - setting.get(s).day + 1, 14, setting.get(s).particle, setting.get(s).loop, setting.get(s).threshold, setting.get(s).radius, data);
 				double previousPredictValue = predictValue;
 				
 				double tResult = 0;
@@ -526,7 +577,7 @@ public class SeriesParticleFilterEngine
 				
 				double count = 0;
 				
-				for(int i = 20; i < data.size(); i++)
+				for(int i = 15; i < data.size(); i++)
 				{
 					 predictValue = engine.predictValue(i - setting.get(s).day + 1, i, setting.get(s).particle, setting.get(s).loop, setting.get(s).threshold, setting.get(s).radius, data);
 					
@@ -746,6 +797,10 @@ public class SeriesParticleFilterEngine
 		{
 			e.printStackTrace();
 		}
-			
+	}
+
+	public static void main(String[] args)
+	{
+		parameterStatistics();
 	}
 }
