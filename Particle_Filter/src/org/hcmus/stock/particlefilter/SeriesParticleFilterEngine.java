@@ -569,7 +569,7 @@ public class SeriesParticleFilterEngine
 				
 				System.out.println(setting.get(s).particle + " - " + setting.get(s).day + " - " + setting.get(s).loop + " - " + setting.get(s).threshold + " - " + setting.get(s).radius);
 				
-				double predictValue = engine.predictValue(14 - setting.get(s).day + 1, 14, setting.get(s).particle, setting.get(s).loop, setting.get(s).threshold, setting.get(s).radius, data);
+				double predictValue = engine.predictValue(15 - setting.get(s).day + 1, 15, setting.get(s).particle, setting.get(s).loop, setting.get(s).threshold, setting.get(s).radius, data);
 				double previousPredictValue = predictValue;
 				
 				double tResult = 0;
@@ -577,7 +577,7 @@ public class SeriesParticleFilterEngine
 				
 				double count = 0;
 				
-				for(int i = 15; i < data.size(); i++)
+				for(int i = 16; i < 619; i++)
 				{
 					 predictValue = engine.predictValue(i - setting.get(s).day + 1, i, setting.get(s).particle, setting.get(s).loop, setting.get(s).threshold, setting.get(s).radius, data);
 					
