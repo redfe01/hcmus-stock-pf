@@ -2,6 +2,7 @@ package org.hcmus.stock.particlefilter;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -9,7 +10,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Random;
@@ -131,7 +131,8 @@ public class SeriesParticleFilterEngine
 		try
 		{
 			BufferedWriter demoWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("dayStimulate.txt")));
-		
+			BufferedWriter pAndw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("particleAndWeight.txt")));
+			
 			double result = 0;
 			
 			ArrayList<Double> distribution = new ArrayList<Double>();
@@ -153,14 +154,22 @@ public class SeriesParticleFilterEngine
 				distribution.addAll(distributionElement);
 			}
 			
-			ArrayList<Double> weightList = normalizer(weighting(distribution, radius));
+			ArrayList<Double> weightList = weighting(distribution, radius);
+			ArrayList<Double> weightListNorm = normalizer(weightList);
+			
+			for(int index = 0; index < distribution.size(); index++)
+			{
+				pAndw.write(distribution.get(index) + "\t" + weightList.get(index) + "\t" + weightListNorm.get(index) + "\n");
+			}
 			
 			double distance = 0;
 			
 			for(int i = 0; i < distribution.size(); i++)
 			{
-				distance += data.get(endDate - 1) * 0.05 * distribution.get(i) * weightList.get(i);
+				distance += data.get(endDate - 1) * 0.05 * distribution.get(i) * weightListNorm.get(i);
 			}
+			
+			System.out.println(distance);
 			
 			result = data.get(endDate - 1) + distance;
 		
@@ -168,6 +177,7 @@ public class SeriesParticleFilterEngine
 			demoWriter.write(count + "\t" + result + "\t" + count + "\t" + result);
 			
 			demoWriter.close();
+			pAndw.close();
 		}
 		catch (FileNotFoundException e) 
 		{
@@ -559,248 +569,257 @@ public class SeriesParticleFilterEngine
 		
 		ArrayList<Double> data = readFileToDouble("Data - VNINDEX.txt");
 		
-		try
+		for(int counting = 11; counting < 20; counting++)
 		{
-			BufferedWriter settingResults = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("settingResults.txt")));
-			BufferedWriter settingStatistics = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("settingStatistics.txt")));
-			
-			for(int s = 0; s < setting.size(); s++)
-			{	
+			try
+			{
+				(new File((counting + 1) + "th")).mkdirs();
 				
-				System.out.println(setting.get(s).particle + " - " + setting.get(s).day + " - " + setting.get(s).loop + " - " + setting.get(s).threshold + " - " + setting.get(s).radius);
+				BufferedWriter settingResults = new BufferedWriter(new OutputStreamWriter(new FileOutputStream((counting + 1) + "th\\settingResults.txt")));
+				BufferedWriter settingStatistics = new BufferedWriter(new OutputStreamWriter(new FileOutputStream((counting + 1) + "th\\settingStatistics.txt")));
 				
-				double predictValue = engine.predictValue(15 - setting.get(s).day + 1, 15, setting.get(s).particle, setting.get(s).loop, setting.get(s).threshold, setting.get(s).radius, data);
-				double previousPredictValue = predictValue;
-				
-				double tResult = 0;
-				double vResult = 0;
-				
-				double count = 0;
-				
-				for(int i = 16; i < 619; i++)
-				{
-					 predictValue = engine.predictValue(i - setting.get(s).day + 1, i, setting.get(s).particle, setting.get(s).loop, setting.get(s).threshold, setting.get(s).radius, data);
+				for(int s = 0; s < setting.size(); s++)
+				{	
 					
-					 vResult += Math.abs(predictValue - data.get(i));
-					 
-					 if((predictValue - previousPredictValue) * (data.get(i) - data.get(i - 1)) > 0)
-					 {
-						 tResult++;
-					 }
-					 
-					 previousPredictValue = predictValue;
-					 
-					 count++;
+					System.out.println(setting.get(s).particle + " - " + setting.get(s).day + " - " + setting.get(s).loop + " - " + setting.get(s).threshold + " - " + setting.get(s).radius);
+					
+					double predictValue = engine.predictValue(15 - setting.get(s).day + 1, 15, setting.get(s).particle, setting.get(s).loop, setting.get(s).threshold, setting.get(s).radius, data);
+					double previousPredictValue = predictValue;
+					
+					double tResult = 0;
+					double vResult = 0;
+					
+					double count = 0;
+					
+					for(int i = 16; i < 619; i++)
+					{
+						 predictValue = engine.predictValue(i - setting.get(s).day + 1, i, setting.get(s).particle, setting.get(s).loop, setting.get(s).threshold, setting.get(s).radius, data);
+						
+						 vResult += Math.abs(predictValue - data.get(i));
+						 
+						 if((predictValue - previousPredictValue) * (data.get(i) - data.get(i - 1)) > 0)
+						 {
+							 tResult++;
+						 }
+						 
+						 previousPredictValue = predictValue;
+						 
+						 count++;
+					}
+					
+					settingResults.write(setting.get(s).particle + "\t" 
+											+ setting.get(s).day + "\t" 
+											+ setting.get(s).loop + "\t" 
+											+ setting.get(s).threshold + "\t" 
+											+ setting.get(s).radius + "\t"
+											+ (tResult/count) + "\t"
+											+ (vResult/count) + "\n");
+					
+					tResultList.add(tResult);
+					vResultList.add(vResult);
 				}
 				
-				settingResults.write(setting.get(s).particle + "\t" 
-										+ setting.get(s).day + "\t" 
-										+ setting.get(s).loop + "\t" 
-										+ setting.get(s).threshold + "\t" 
-										+ setting.get(s).radius + "\t"
-										+ (tResult/count) + "\t"
-										+ (vResult/count) + "\n");
 				
-				tResultList.add(tResult);
-				vResultList.add(vResult);
-			}
-			
-			
-			int[] pTCounter = new int[6];
-			int[] pVCounter = new int[6];
-			for(int i = 0; i < pTCounter.length; i++)
-			{
-				pTCounter[i] = 0;
-				pVCounter[i] = 0;
-			}
-			
-			int[] lTCounter = new int[6];
-			int[] lVCounter = new int[6];
-			for(int i = 0; i < lTCounter.length; i++)
-			{
-				lTCounter[i] = 0;
-				lVCounter[i] = 0;
-			}
-			
-			int[] dTCounter = new int[5];
-			int[] dVCounter = new int[5];
-			for(int i = 0; i < dTCounter.length; i++)
-			{
-				dTCounter[i] = 0;
-				dVCounter[i] = 0;
-			}
-			
-			int[] tTCounter = new int[4];
-			int[] tVCounter = new int[4];
-			for(int i = 0; i < tTCounter.length; i++)
-			{
-				tTCounter[i] = 0;
-				tVCounter[i] = 0;
-			}
-			
-			int[] rTCounter = new int[5];
-			int[] rVCounter = new int[5];
-			for(int i = 0; i < rTCounter.length; i++)
-			{
-				rTCounter[i] = 0;
-				rVCounter[i] = 0;
-			}
-			
-			for(int i = 0; i < 600; i++)
-			{
-				ArrayList<Double> tCompareList = new ArrayList<Double>();
-				ArrayList<Double> vCompareList = new ArrayList<Double>();	
-				
-				for(int j = 0; j < 6; j++)
+				int[] pTCounter = new int[6];
+				int[] pVCounter = new int[6];
+				for(int i = 0; i < pTCounter.length; i++)
 				{
-					tCompareList.add(tResultList.get(i + j * 600));
-					vCompareList.add(vResultList.get(i + j * 600));
+					pTCounter[i] = 0;
+					pVCounter[i] = 0;
 				}
 				
-				pTCounter[tCompareList.indexOf(Collections.max(tCompareList))]++;
-				pVCounter[vCompareList.indexOf(Collections.min(vCompareList))]++;
-			}
-			
-			for(int i = 0; i < 600; i++)
-			{
-				ArrayList<Double> tCompareList = new ArrayList<Double>();
-				ArrayList<Double> vCompareList = new ArrayList<Double>();
-				
-				for(int j = 0; j < 6; j++)
+				int[] lTCounter = new int[6];
+				int[] lVCounter = new int[6];
+				for(int i = 0; i < lTCounter.length; i++)
 				{
-					tCompareList.add(tResultList.get(i + j * 100));
-					vCompareList.add(vResultList.get(i + j * 100));
+					lTCounter[i] = 0;
+					lVCounter[i] = 0;
 				}
 				
-				lTCounter[tCompareList.indexOf(Collections.max(tCompareList))]++;
-				lVCounter[vCompareList.indexOf(Collections.min(vCompareList))]++;
-			}
-			
-			for(int i = 0; i < 720; i++)
-			{
-				ArrayList<Double> tCompareList = new ArrayList<Double>();
-				ArrayList<Double> vCompareList = new ArrayList<Double>();
-				
-				for(int j = 0; j < 5; j++)
+				int[] dTCounter = new int[5];
+				int[] dVCounter = new int[5];
+				for(int i = 0; i < dTCounter.length; i++)
 				{
-					tCompareList.add(tResultList.get(i + j * 20));
-					vCompareList.add(vResultList.get(i + j * 20));
+					dTCounter[i] = 0;
+					dVCounter[i] = 0;
 				}
 				
-				dTCounter[tCompareList.indexOf(Collections.max(tCompareList))]++;
-				dVCounter[vCompareList.indexOf(Collections.min(vCompareList))]++;
-			}
-			
-			for(int i = 0; i < 900; i++)
-			{
-				ArrayList<Double> tCompareList = new ArrayList<Double>();
-				ArrayList<Double> vCompareList = new ArrayList<Double>();
-				
-				for(int j = 0; j < 4; j++)
+				int[] tTCounter = new int[4];
+				int[] tVCounter = new int[4];
+				for(int i = 0; i < tTCounter.length; i++)
 				{
-					tCompareList.add(tResultList.get(i + j * 5));
-					vCompareList.add(vResultList.get(i + j * 5));
+					tTCounter[i] = 0;
+					tVCounter[i] = 0;
 				}
 				
-				tTCounter[tCompareList.indexOf(Collections.max(tCompareList))]++;
-				tVCounter[vCompareList.indexOf(Collections.min(vCompareList))]++;
-			}
-			
-			for(int i = 0; i < 720; i++)
-			{
-				ArrayList<Double> tCompareList = new ArrayList<Double>();
-				ArrayList<Double> vCompareList = new ArrayList<Double>();
-				
-				for(int j = 0; j < 4; j++)
+				int[] rTCounter = new int[5];
+				int[] rVCounter = new int[5];
+				for(int i = 0; i < rTCounter.length; i++)
 				{
-					tCompareList.add(tResultList.get(i + j * 5));
-					vCompareList.add(vResultList.get(i + j * 5));
+					rTCounter[i] = 0;
+					rVCounter[i] = 0;
 				}
 				
-				rTCounter[tCompareList.indexOf(Collections.max(tCompareList))]++;
-				rVCounter[vCompareList.indexOf(Collections.min(vCompareList))]++;
+				for(int i = 0; i < 600; i++)
+				{
+					ArrayList<Double> tCompareList = new ArrayList<Double>();
+					ArrayList<Double> vCompareList = new ArrayList<Double>();	
+					
+					for(int j = 0; j < 6; j++)
+					{
+						tCompareList.add(tResultList.get(i + j * 600));
+						vCompareList.add(vResultList.get(i + j * 600));
+					}
+					
+					pTCounter[tCompareList.indexOf(Collections.max(tCompareList))]++;
+					pVCounter[vCompareList.indexOf(Collections.min(vCompareList))]++;
+				}
+				
+				for(int i = 0; i < 600; i++)
+				{
+					ArrayList<Double> tCompareList = new ArrayList<Double>();
+					ArrayList<Double> vCompareList = new ArrayList<Double>();
+					
+					for(int j = 0; j < 6; j++)
+					{
+						tCompareList.add(tResultList.get(i + j * 100));
+						vCompareList.add(vResultList.get(i + j * 100));
+					}
+					
+					lTCounter[tCompareList.indexOf(Collections.max(tCompareList))]++;
+					lVCounter[vCompareList.indexOf(Collections.min(vCompareList))]++;
+				}
+				
+				for(int i = 0; i < 720; i++)
+				{
+					ArrayList<Double> tCompareList = new ArrayList<Double>();
+					ArrayList<Double> vCompareList = new ArrayList<Double>();
+					
+					for(int j = 0; j < 5; j++)
+					{
+						tCompareList.add(tResultList.get(i + j * 20));
+						vCompareList.add(vResultList.get(i + j * 20));
+					}
+					
+					dTCounter[tCompareList.indexOf(Collections.max(tCompareList))]++;
+					dVCounter[vCompareList.indexOf(Collections.min(vCompareList))]++;
+				}
+				
+				for(int i = 0; i < 900; i++)
+				{
+					ArrayList<Double> tCompareList = new ArrayList<Double>();
+					ArrayList<Double> vCompareList = new ArrayList<Double>();
+					
+					for(int j = 0; j < 4; j++)
+					{
+						tCompareList.add(tResultList.get(i + j * 5));
+						vCompareList.add(vResultList.get(i + j * 5));
+					}
+					
+					tTCounter[tCompareList.indexOf(Collections.max(tCompareList))]++;
+					tVCounter[vCompareList.indexOf(Collections.min(vCompareList))]++;
+				}
+				
+				for(int i = 0; i < 720; i++)
+				{
+					ArrayList<Double> tCompareList = new ArrayList<Double>();
+					ArrayList<Double> vCompareList = new ArrayList<Double>();
+					
+					for(int j = 0; j < 4; j++)
+					{
+						tCompareList.add(tResultList.get(i + j * 5));
+						vCompareList.add(vResultList.get(i + j * 5));
+					}
+					
+					rTCounter[tCompareList.indexOf(Collections.max(tCompareList))]++;
+					rVCounter[vCompareList.indexOf(Collections.min(vCompareList))]++;
+				}
+				
+				settingStatistics.write("Particle:\n");
+				settingStatistics.write("Trending:\n");
+				for(int i = 0; i < particle.length; i++)
+				{
+					settingStatistics.write(particle[i] + ": " + pTCounter[i] + "\n");
+				}
+				settingStatistics.write("Value:\n");
+				for(int i = 0; i < particle.length; i++)
+				{
+					settingStatistics.write(particle[i] + ": " + pVCounter[i] + "\n");
+				}
+				settingStatistics.write("\n");
+				
+				settingStatistics.write("Loop:\n");
+				settingStatistics.write("Trending:\n");
+				for(int i = 0; i < loop.length; i++)
+				{
+					settingStatistics.write(loop[i] + ": " + lTCounter[i] + "\n");
+				}
+				settingStatistics.write("Value:\n");
+				for(int i = 0; i < loop.length; i++)
+				{
+					settingStatistics.write(loop[i] + ": " + lVCounter[i] + "\n");
+				}
+				settingStatistics.write("\n");
+				
+				settingStatistics.write("Day:\n");
+				settingStatistics.write("Trending:\n");
+				for(int i = 0; i < day.length; i++)
+				{
+					settingStatistics.write(day[i] + ": " + dTCounter[i] + "\n");
+				}
+				settingStatistics.write("Value:\n");
+				for(int i = 0; i < day.length; i++)
+				{
+					settingStatistics.write(day[i] + ": " + dVCounter[i] + "\n");
+				}
+				settingStatistics.write("\n");
+				
+				settingStatistics.write("Threshold:\n");
+				settingStatistics.write("Trending:\n");
+				for(int i = 0; i < threshold.length; i++)
+				{
+					settingStatistics.write(threshold[i] + ": " + tTCounter[i] + "\n");
+				}
+				settingStatistics.write("Value:\n");
+				for(int i = 0; i < threshold.length; i++)
+				{
+					settingStatistics.write(threshold[i] + ": " + tVCounter[i] + "\n");
+				}
+				settingStatistics.write("\n");
+				
+				settingStatistics.write("Radius:\n");
+				settingStatistics.write("Trending:\n");
+				for(int i = 0; i < radius.length; i++)
+				{
+					settingStatistics.write(radius[i] + ": " + rTCounter[i] + "\n");
+				}
+				settingStatistics.write("Value:\n");
+				for(int i = 0; i < radius.length; i++)
+				{
+					settingStatistics.write(radius[i] + ": " + rVCounter[i] + "\n");
+				}
+				settingStatistics.write("\n");
+				
+				settingStatistics.close();
+				settingResults.close();
 			}
-			
-			settingStatistics.write("Particle:\n");
-			settingStatistics.write("Trending:\n");
-			for(int i = 0; i < particle.length; i++)
+			catch (FileNotFoundException e) 
 			{
-				settingStatistics.write(particle[i] + ": " + pTCounter[i] + "\n");
-			}
-			settingStatistics.write("Value:\n");
-			for(int i = 0; i < particle.length; i++)
+				e.printStackTrace();
+			} 
+			catch (IOException e) 
 			{
-				settingStatistics.write(particle[i] + ": " + pVCounter[i] + "\n");
+				e.printStackTrace();
 			}
-			settingStatistics.write("\n");
-			
-			settingStatistics.write("Loop:\n");
-			settingStatistics.write("Trending:\n");
-			for(int i = 0; i < loop.length; i++)
-			{
-				settingStatistics.write(loop[i] + ": " + lTCounter[i] + "\n");
-			}
-			settingStatistics.write("Value:\n");
-			for(int i = 0; i < loop.length; i++)
-			{
-				settingStatistics.write(loop[i] + ": " + lVCounter[i] + "\n");
-			}
-			settingStatistics.write("\n");
-			
-			settingStatistics.write("Day:\n");
-			settingStatistics.write("Trending:\n");
-			for(int i = 0; i < day.length; i++)
-			{
-				settingStatistics.write(day[i] + ": " + dTCounter[i] + "\n");
-			}
-			settingStatistics.write("Value:\n");
-			for(int i = 0; i < day.length; i++)
-			{
-				settingStatistics.write(day[i] + ": " + dVCounter[i] + "\n");
-			}
-			settingStatistics.write("\n");
-			
-			settingStatistics.write("Threshold:\n");
-			settingStatistics.write("Trending:\n");
-			for(int i = 0; i < threshold.length; i++)
-			{
-				settingStatistics.write(threshold[i] + ": " + tTCounter[i] + "\n");
-			}
-			settingStatistics.write("Value:\n");
-			for(int i = 0; i < threshold.length; i++)
-			{
-				settingStatistics.write(threshold[i] + ": " + tVCounter[i] + "\n");
-			}
-			settingStatistics.write("\n");
-			
-			settingStatistics.write("Radius:\n");
-			settingStatistics.write("Trending:\n");
-			for(int i = 0; i < radius.length; i++)
-			{
-				settingStatistics.write(radius[i] + ": " + rTCounter[i] + "\n");
-			}
-			settingStatistics.write("Value:\n");
-			for(int i = 0; i < radius.length; i++)
-			{
-				settingStatistics.write(radius[i] + ": " + rVCounter[i] + "\n");
-			}
-			settingStatistics.write("\n");
-			
-			settingStatistics.close();
-			settingResults.close();
-		}
-		catch (FileNotFoundException e) 
-		{
-			e.printStackTrace();
-		} 
-		catch (IOException e) 
-		{
-			e.printStackTrace();
 		}
 	}
-
+	
 	public static void main(String[] args)
 	{
-		parameterStatistics();
+		SeriesParticleFilterEngine engine = new SeriesParticleFilterEngine();
+		
+		ArrayList<Double> data = readFileToDouble("Data - VNINDEX.txt");
+		
+		engine.predictValueDemo(500 - 8 + 1, 500, 3, 1000, 0.01, 0.01, data);
 	}
 }
