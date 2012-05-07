@@ -814,12 +814,148 @@ public class SeriesParticleFilterEngine
 		}
 	}
 	
-	public static void main(String[] args)
+	public static void parameterChooser()
 	{
 		SeriesParticleFilterEngine engine = new SeriesParticleFilterEngine();
 		
+		int[] particle = {3, 10, 30};
+		int[] day = {4, 6, 8};
+		double[] radius = {0.01, 0.03, 0.1};
+		
+		class Setting
+		{
+			int particle;
+			int day;
+			double radius;
+			ArrayList<Double> tValue; 
+			ArrayList<Double> vError;
+			
+			Setting()
+			{
+				tValue = new ArrayList<Double>();
+				vError = new ArrayList<Double>();
+			}
+			
+			Setting(int particle, int day, double radius)
+			{
+				this.particle = particle;
+				this.day = day;
+				this.radius = radius;
+				
+				tValue = new ArrayList<Double>();
+				vError = new ArrayList<Double>();
+			}
+			
+			public double avgTValue()
+			{
+				double sum = 0;
+				for(int i = 0; i < tValue.size(); i++)
+				{
+					sum += tValue.get(i);
+				}
+				
+				return sum/(tValue.size() * 1.0);
+			}
+			
+			public double avgVError()
+			{
+				double sum = 0;
+				for(int i = 0; i < vError.size(); i++)
+				{
+					sum += vError.get(i);
+				}
+				
+				return sum/(vError.size() * 1.0);
+			}
+		}
+		
+		ArrayList<Setting> settingList = new ArrayList<Setting>();
+		
+		for(int i = 0; i < particle.length; i++)
+		{
+			for(int j = 0; j < day.length; j++)
+			{
+				for(int k = 0; k < radius.length; k++)
+				{
+					Setting newSetting = new Setting(particle[i], day[j], radius[k]);
+					
+					settingList.add(newSetting);
+				}
+			}
+		}
+		
 		ArrayList<Double> data = readFileToDouble("Data - VNINDEX.txt");
 		
-		engine.predictValueDemo(500 - 8 + 1, 500, 3, 1000, 0.01, 0.01, data);
+		for(int times = 0; times < 5; times++)
+		{
+			System.out.println("Runing times: " + (times + 1));
+			for(int i = 0; i < settingList.size(); i++)
+			{
+				System.out.println(
+						settingList.get(i).particle + " - " +
+						settingList.get(i).day + " - " + 
+						settingList.get(i).radius);
+				
+				double predictValue = engine.predictValue(8 - settingList.get(i).day + 1, 8, settingList.get(i).particle, 1000, 0.01, settingList.get(i).radius, data);
+				double previousPredictValue = predictValue;
+				
+				double tValue = 0;
+				double vError = 0;
+				
+				double count = 0;
+				
+				for(int date = 9; date < 619; date++)
+				{
+					predictValue = engine.predictValue(date - settingList.get(i).day + 1, date, settingList.get(i).particle, 1000, 0.01, settingList.get(i).radius, data);
+					
+					vError += Math.abs(predictValue - data.get(date));
+					
+					if((predictValue - previousPredictValue) * (data.get(date) - data.get(date - 1)) > 0)
+					{
+						tValue++;
+					}
+					
+					previousPredictValue = predictValue;
+					count++;
+				}
+				
+				settingList.get(i).tValue.add(tValue/count);
+				settingList.get(i).vError.add(vError/count);
+			}
+		}
+		
+		try 
+		{
+			BufferedWriter settingStatistics = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("settingStatistics.txt")));
+			
+			settingStatistics.write("id" + "\t" + "particle" + "\t" + "day" + "\t" + "radius" + "\t" + "avgTValue" + "\t" + "avgVError" + "\n");
+			
+			for(int i = 0; i < settingList.size(); i++)
+			{
+				settingStatistics.write((i + 1) + 
+						"\t" + settingList.get(i).particle + 
+						"\t" + settingList.get(i).day + 
+						"\t" + settingList.get(i).radius +
+						"\t" + settingList.get(i).avgTValue() + 
+						"\t" + settingList.get(i).avgVError() + "\n");
+			}
+			
+			settingStatistics.close();
+		} 
+		catch (FileNotFoundException e) 
+		{
+			e.printStackTrace();
+		} 
+		catch (IOException e) 
+		{
+			e.printStackTrace();
+		}
+
+		
+	}
+	
+	public static void main(String[] args)
+	{
+		parameterChooser();
 	}
 }
