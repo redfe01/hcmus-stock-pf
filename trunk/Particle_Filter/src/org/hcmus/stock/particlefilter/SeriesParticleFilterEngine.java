@@ -886,7 +886,7 @@ public class SeriesParticleFilterEngine
 		
 		ArrayList<Double> data = readFileToDouble("Data - VNINDEX.txt");
 		
-		for(int times = 0; times < 5; times++)
+		for(int times = 0; times < 50; times++)
 		{
 			System.out.println("Runing times: " + (times + 1));
 			for(int i = 0; i < settingList.size(); i++)
@@ -906,7 +906,7 @@ public class SeriesParticleFilterEngine
 				
 				for(int date = 9; date < 619; date++)
 				{
-					predictValue = engine.predictValue(date - settingList.get(i).day + 1, date, settingList.get(i).particle, 1000, 0.01, settingList.get(i).radius, data);
+					predictValue = engine.predictValue(date - settingList.get(i).day + 1, date, settingList.get(i).particle, 100, 0.01, settingList.get(i).radius, data);
 					
 					vError += Math.abs(predictValue - data.get(date));
 					
@@ -954,8 +954,200 @@ public class SeriesParticleFilterEngine
 		
 	}
 	
-	public static void main(String[] args)
+	public static void testingResult()
 	{
-		parameterChooser();
+		SeriesParticleFilterEngine engine = new SeriesParticleFilterEngine();
+		
+		int[] quarter = {684, 749, 808};
+		
+		ArrayList<Double> data = readFileToDouble("Data - VNINDEX.txt");
+		
+		ArrayList<Double> tValueList = new ArrayList<Double>();
+		ArrayList<Double> vErrorList = new ArrayList<Double>();
+		
+		ArrayList<double[]> tValueQuarterList = new ArrayList<double[]>();
+		ArrayList<double[]> vErrorQuarterList = new ArrayList<double[]>();
+		
+		(new File("Individual Result")).mkdirs();
+		
+		for(int times = 0; times < 100; times++)
+		{
+			System.out.println(times + 1);
+			
+			double predictedValue = engine.predictValue(618 - 8 + 1, 618, 10, 1000, 0.01, 0.03, data);
+			double previousPredictedValue = predictedValue;
+			
+			double tValue = 0;
+			double vError = 0;
+			
+			double[] tQuarterResult = {0, 0, 0};
+			double[] vQuarterResult = {0, 0, 0};
+			
+			int quarterCounter = 0;
+			int counter = 0;
+			int quarterIndex = 0;
+			
+			try 
+			{
+				BufferedWriter result = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("Individual Result\\" + (times + 1) + ".txt")));
+				
+				for(int i = 619; i < data.size(); i++)
+				{
+					predictedValue = engine.predictValue(i - 8 + 1, i, 10, 1000, 0.01, 0.03, data);
+					
+					result.write((i + 1) + "\t" + data.get(i) + "\t"  + predictedValue + "\n");
+					
+					vError += Math.abs(predictedValue - data.get(i));
+					if(quarterIndex < 3)
+					{
+						vQuarterResult[quarterIndex] += Math.abs(predictedValue - data.get(i));
+					}
+					
+					if((predictedValue - previousPredictedValue) * (data.get(i) - data.get(i - 1)) > 0)
+					{
+						tValue++;
+						if(quarterIndex < 3)
+						{
+							tQuarterResult[quarterIndex]++;
+						}
+					}
+					
+					quarterCounter++;
+					counter++;
+					
+					if(quarterIndex < 3)
+					{
+						if((i + 1) == quarter[quarterIndex])
+						{	
+							tQuarterResult[quarterIndex] = tQuarterResult[quarterIndex]/quarterCounter;
+							vQuarterResult[quarterIndex] = vQuarterResult[quarterIndex]/quarterCounter;
+							quarterCounter = 0;
+							quarterIndex++;
+						}
+					}
+					
+					previousPredictedValue = predictedValue;
+				}
+				
+				tValue = tValue/counter;
+				vError = vError/counter;
+				
+				result.write("\n");
+				result.write("Trending Quarter Value:\n");
+				result.write(tQuarterResult[0] + "\t" + tQuarterResult[1] + "\t" + tQuarterResult[2] + "\n");
+				result.write("Value Quarter Error:\n");
+				result.write(vQuarterResult[0] + "\t" + vQuarterResult[1] + "\t" + vQuarterResult[2] + "\n");
+				
+				result.write("\n");
+				result.write("Trending:\t" + tValue + "\n");
+				result.write("MAE:\t" + vError + "\n");
+				
+				result.close();
+			} 
+			catch (FileNotFoundException e) 
+			{
+				e.printStackTrace();
+			}
+			catch (IOException e)
+			{
+				e.printStackTrace();
+			}
+						
+			tValueList.add(tValue);
+			vErrorList.add(vError);
+			
+			tValueQuarterList.add(tQuarterResult);
+			vErrorQuarterList.add(vQuarterResult);
+		}
+		
+		double tResult = 0;
+		double vResult = 0;
+		double tStd = 0;
+		double vStd = 0;
+
+		double[] tQuarterResult = {0, 0, 0};
+		double[] vQuarterResult = {0, 0, 0};
+		double[] tQuarterStd = {0, 0, 0};
+		double[] vQuarterStd = {0, 0, 0};
+		
+		for(int i = 0; i < 100; i++)
+		{
+			tResult += tValueList.get(i);
+			vResult += vErrorList.get(i);
+			
+			tQuarterResult[0] += tValueQuarterList.get(i)[0];
+			tQuarterResult[1] += tValueQuarterList.get(i)[1];
+			tQuarterResult[2] += tValueQuarterList.get(i)[2];
+			
+			vQuarterResult[0] += vErrorQuarterList.get(i)[0];
+			vQuarterResult[1] += vErrorQuarterList.get(i)[1];
+			vQuarterResult[2] += vErrorQuarterList.get(i)[2]; 
+		}
+		
+		tQuarterResult[0] = tQuarterResult[0]/100;
+		tQuarterResult[1] = tQuarterResult[1]/100;
+		tQuarterResult[2] = tQuarterResult[2]/100;
+		
+		vQuarterResult[0] = vQuarterResult[0]/100;
+		vQuarterResult[1] = vQuarterResult[1]/100;
+		vQuarterResult[2] = vQuarterResult[2]/100;
+		
+		tResult = tResult/100;
+		vResult = vResult/100;
+		
+		for(int i = 0; i < 100; i++)
+		{
+			tStd += Math.pow((tValueList.get(i) - tResult), 2);
+			vStd += Math.pow((vErrorList.get(i) - vResult), 2);
+			
+			tQuarterStd[0] += Math.pow((tValueQuarterList.get(i)[0] - tQuarterResult[0]), 2);
+			tQuarterStd[1] += Math.pow((tValueQuarterList.get(i)[1] - tQuarterResult[1]), 2);
+			tQuarterStd[2] += Math.pow((tValueQuarterList.get(i)[2] - tQuarterResult[2]), 2);
+			
+			vQuarterStd[0] += Math.pow((vErrorQuarterList.get(i)[0] - vQuarterResult[0]), 2);
+			vQuarterStd[1] += Math.pow((vErrorQuarterList.get(i)[1] - vQuarterResult[1]), 2);
+			vQuarterStd[2] += Math.pow((vErrorQuarterList.get(i)[2] - vQuarterResult[2]), 2);
+		}
+		
+		tStd = Math.sqrt(tStd/99);
+		vStd = Math.sqrt(vStd/99);
+			
+		tQuarterStd[0] = Math.sqrt(tQuarterStd[0]/99);
+		tQuarterStd[1] = Math.sqrt(tQuarterStd[1]/99);
+		tQuarterStd[2] = Math.sqrt(tQuarterStd[2]/99);
+		
+		vQuarterStd[0] = Math.sqrt(vQuarterStd[0]/99);
+		vQuarterStd[1] = Math.sqrt(vQuarterStd[1]/99);
+		vQuarterStd[2] = Math.sqrt(vQuarterStd[2]/99);
+		
+		try
+		{
+			BufferedWriter avgResult = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("avgResult.txt")));
+			
+			avgResult.write("Quarter Result:\n");
+			avgResult.write("Treding:\n");
+			avgResult.write(tQuarterResult[0] + "+-" + tQuarterStd[0] + "\t" + tQuarterResult[1] + "+-" + tQuarterStd[1] + "\t" + tQuarterResult[2] + "+-" + tQuarterStd[2] + "\n");
+			avgResult.write("MAE:\n");
+			avgResult.write(vQuarterResult[0] + "+-" + vQuarterStd[0] + "\t" + vQuarterResult[1] + "+-" + vQuarterStd[1] + "\t" + vQuarterResult[2] + "+-" + vQuarterStd[2] + "\n");
+			
+			avgResult.write("\n");
+			avgResult.write("Trending:\t" + tResult + "+-" + tStd + "\n");
+			avgResult.write("MAE:\t" + vResult + "+-" + vStd + "\t");
+			
+			avgResult.close();
+		}
+		catch(FileNotFoundException e)
+		{
+			e.printStackTrace();
+		}
+		catch(IOException e)
+		{
+			e.printStackTrace();
+		}
+	}
+	
+	public static void main(String[] args)
+	{		
+		testingResult();
 	}
 }
