@@ -143,11 +143,15 @@ public class SeriesParticleFilterEngine
 			{
 				ArrayList<Double> distributionElement = functionGeneration(data.get(i - 1), data.get(i), numParticle, numLoop, threshold, 0.5);
 				
+				demoWriter.write(count + "\t" + data.get(i - 1) + "\t" + count + "\t" + 0 + "\n");
+				
 				for(int j = 0; j < distributionElement.size(); j++)
 				{
 					double value = (data.get(i - 1) * 0.05 * distributionElement.get(j)) + data.get(i - 1);
 					demoWriter.write(count + "\t" + value + "\t" + count + "\t" + distributionElement.get(j) + "\n");
 				}
+				
+				demoWriter.write(count + "\t" + data.get(i) + "\t" + count + "\t" + (data.get(i)/data.get(i - 1) - 1) + "\n");
 				
 				count++;
 	
@@ -536,6 +540,15 @@ public class SeriesParticleFilterEngine
 			int day;
 			double threshold;
 			double radius;
+			
+			ArrayList<Double> tValue;
+			ArrayList<Double> vError;
+			
+			Setting()
+			{
+				tValue = new ArrayList<Double>();
+				vError = new ArrayList<Double>();
+			}
 		}
 		
 		ArrayList<Setting> setting = new ArrayList<Setting>();
@@ -569,7 +582,7 @@ public class SeriesParticleFilterEngine
 		
 		ArrayList<Double> data = readFileToDouble("Data - VNINDEX.txt");
 		
-		for(int counting = 11; counting < 20; counting++)
+		for(int counting = 0; counting < 20; counting++)
 		{
 			try
 			{
@@ -580,7 +593,6 @@ public class SeriesParticleFilterEngine
 				
 				for(int s = 0; s < setting.size(); s++)
 				{	
-					
 					System.out.println(setting.get(s).particle + " - " + setting.get(s).day + " - " + setting.get(s).loop + " - " + setting.get(s).threshold + " - " + setting.get(s).radius);
 					
 					double predictValue = engine.predictValue(15 - setting.get(s).day + 1, 15, setting.get(s).particle, setting.get(s).loop, setting.get(s).threshold, setting.get(s).radius, data);
@@ -615,8 +627,8 @@ public class SeriesParticleFilterEngine
 											+ (tResult/count) + "\t"
 											+ (vResult/count) + "\n");
 					
-					tResultList.add(tResult);
-					vResultList.add(vResult);
+					setting.get(s).tValue.add(tResult);
+					setting.get(s).vError.add(vResult);
 				}
 				
 				
@@ -867,6 +879,32 @@ public class SeriesParticleFilterEngine
 				
 				return sum/(vError.size() * 1.0);
 			}
+			
+			public double stdTValue()
+			{
+				double average = avgTValue();
+				
+				double sum = 0;
+				for(int i = 0; i < tValue.size(); i++)
+				{
+					sum += Math.pow((tValue.get(i) - average), 2);
+				}
+				
+				return Math.sqrt(sum/(tValue.size() - 1));
+			}
+			
+			public double stdVError()
+			{
+				double average = avgVError();
+				
+				double sum = 0;
+				for(int i = 0; i < vError.size(); i++)
+				{
+					sum += Math.pow((vError.get(i) - average), 2);
+				}
+				
+				return Math.sqrt(sum/(vError.size() - 1));
+			}
 		}
 		
 		ArrayList<Setting> settingList = new ArrayList<Setting>();
@@ -886,7 +924,7 @@ public class SeriesParticleFilterEngine
 		
 		ArrayList<Double> data = readFileToDouble("Data - VNINDEX.txt");
 		
-		for(int times = 0; times < 50; times++)
+		for(int times = 0; times < 100; times++)
 		{
 			System.out.println("Runing times: " + (times + 1));
 			for(int i = 0; i < settingList.size(); i++)
@@ -919,7 +957,7 @@ public class SeriesParticleFilterEngine
 					count++;
 				}
 				
-				settingList.get(i).tValue.add(tValue/count);
+				settingList.get(i).tValue.add(1 - (tValue/count));
 				settingList.get(i).vError.add(vError/count);
 			}
 		}
@@ -928,7 +966,7 @@ public class SeriesParticleFilterEngine
 		{
 			BufferedWriter settingStatistics = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("settingStatistics.txt")));
 			
-			settingStatistics.write("id" + "\t" + "particle" + "\t" + "day" + "\t" + "radius" + "\t" + "avgTValue" + "\t" + "avgVError" + "\n");
+			settingStatistics.write("id" + "\t" + "particle" + "\t" + "day" + "\t" + "radius" + "\t" + "avgTValue" + "\t" + "stdTValue" + "\t" + "avgVError" + "\t" + "stdVError" + "\n");
 			
 			for(int i = 0; i < settingList.size(); i++)
 			{
@@ -936,8 +974,10 @@ public class SeriesParticleFilterEngine
 						"\t" + settingList.get(i).particle + 
 						"\t" + settingList.get(i).day + 
 						"\t" + settingList.get(i).radius +
-						"\t" + settingList.get(i).avgTValue() + 
-						"\t" + settingList.get(i).avgVError() + "\n");
+						"\t" + settingList.get(i).avgTValue() +
+						"\t" + settingList.get(i).stdTValue() +
+						"\t" + settingList.get(i).avgVError() +
+						"\t" + settingList.get(i).stdVError() + "\n");
 			}
 			
 			settingStatistics.close();
@@ -974,7 +1014,7 @@ public class SeriesParticleFilterEngine
 		{
 			System.out.println(times + 1);
 			
-			double predictedValue = engine.predictValue(618 - 8 + 1, 618, 10, 1000, 0.01, 0.03, data);
+			double predictedValue = engine.predictValue(618 - 8 + 1, 618, 30, 1000, 0.01, 0.1, data);
 			double previousPredictedValue = predictedValue;
 			
 			double tValue = 0;
@@ -993,7 +1033,7 @@ public class SeriesParticleFilterEngine
 				
 				for(int i = 619; i < data.size(); i++)
 				{
-					predictedValue = engine.predictValue(i - 8 + 1, i, 10, 1000, 0.01, 0.03, data);
+					predictedValue = engine.predictValue(i - 8 + 1, i, 30, 1000, 0.01, 0.1, data);
 					
 					result.write((i + 1) + "\t" + data.get(i) + "\t"  + predictedValue + "\n");
 					
@@ -1147,7 +1187,16 @@ public class SeriesParticleFilterEngine
 	}
 	
 	public static void main(String[] args)
-	{		
-		testingResult();
+	{	
+		
+		parameterChooser();
+		
+//		testingResult();
+		
+//		ArrayList<Double> data = readFileToDouble("Data - VNINDEX.txt");
+//		
+//		SeriesParticleFilterEngine engine = new SeriesParticleFilterEngine();
+//		
+//		engine.predictValueDemo(673 - 8 + 1, 673, 10, 1000, 0.01, 0.1, data);
 	}
 }
